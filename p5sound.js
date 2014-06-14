@@ -21,6 +21,7 @@ var SoundFile; // Plays sound files
 var Amplitude; // Measures Amplitude (Volume)
 var FFT; // Returns an array of frequency data
 var Oscillator, SinOsc, SqrOsc, SawOsc, TriOsc, Pulse;
+var AudioIn;
 
 
 var createP5Sound = (function(){
@@ -59,6 +60,10 @@ var createP5Sound = (function(){
   if (!AudioContext.prototype.hasOwnProperty('createScriptProcessor')){
     AudioContext.prototype.createScriptProcessor = AudioContext.prototype.createJavaScriptNode;
   }
+
+  // Polyfill for AudioIn
+  navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia 
+    || navigator.mozGetUserMedia || navigator.msGetUserMedia;
 
 
   /**
@@ -203,6 +208,9 @@ var createP5Sound = (function(){
 
     // tell the window about the p5 object so that we can reference it in the future
     window.p5sound = this;
+
+    // an array of input sources, populated by AudioIn
+    this.inputSources = [];
 
     this.output.disconnect(this.audiocontext.destination);
 
@@ -1097,109 +1105,169 @@ SoundFile.prototype.isLoaded = function() {
     return this.panPosition;
   }
 
-// Extending
-SinOsc = function(freq) {
-  Oscillator.call(this, freq, 'sine');
-}
+  // Extending
+  SinOsc = function(freq) {
+    Oscillator.call(this, freq, 'sine');
+  }
 
-SinOsc.prototype = Object.create(Oscillator.prototype);
+  SinOsc.prototype = Object.create(Oscillator.prototype);
 
-TriOsc = function(freq) {
-  Oscillator.call(this, freq, 'triangle');
-}
+  TriOsc = function(freq) {
+    Oscillator.call(this, freq, 'triangle');
+  }
 
-TriOsc.prototype = Object.create(Oscillator.prototype);
+  TriOsc.prototype = Object.create(Oscillator.prototype);
 
-SawOsc = function(freq) {
-  Oscillator.call(this, freq, 'sawtooth');
-}
+  SawOsc = function(freq) {
+    Oscillator.call(this, freq, 'sawtooth');
+  }
 
-SawOsc.prototype = Object.create(Oscillator.prototype);
+  SawOsc.prototype = Object.create(Oscillator.prototype);
 
-SqrOsc = function(freq) {
-  Oscillator.call(this, freq, 'square');
-}
+  SqrOsc = function(freq) {
+    Oscillator.call(this, freq, 'square');
+  }
 
-SqrOsc.prototype = Object.create(Oscillator.prototype);
+  SqrOsc.prototype = Object.create(Oscillator.prototype);
 
-/**
- * Inspired by http://www.musicdsp.org/showone.php?id=8
- */
-Pulse = function(freq, w) {
-  Oscillator.call(this, freq, 'sawtooth');
+  /**
+   * Inspired by http://www.musicdsp.org/showone.php?id=8
+   */
+  Pulse = function(freq, w) {
+    Oscillator.call(this, freq, 'sawtooth');
 
-  // width of PWM, should be betw 0 to 1.0
-  this.w = w || 0;
+    // width of PWM, should be betw 0 to 1.0
+    this.w = w || 0;
 
-  // create a second oscillator with inverse frequency
-  this.osc2 = new SawOsc(-freq);
+    // create a second oscillator with inverse frequency
+    this.osc2 = new SawOsc(-freq);
 
-  // create a delay node
-  this.dNode = this.p5s.audiocontext.createDelay();
+    // create a delay node
+    this.dNode = this.p5s.audiocontext.createDelay();
 
-  // set delay time based on PWM width
-  this.dNode.delayTime.value = map(this.w, 0, 1.0, 0, 1/this.oscillator.frequency.value)
-
-  // disconnect osc2 and connect it to delay, which is connected to output
-  this.osc2.disconnect();
-  this.osc2.connect(this.osc2.output);
-  this.osc2.connect(this.dNode);
-  this.dNode.connect(this.output);
-
-}
-
-Pulse.prototype = Object.create(Oscillator.prototype);
-
-Pulse.prototype.setWidth = function(w) {
-  if (w <= 1.0 && w >= 0.0) {
-    this.w = w;
     // set delay time based on PWM width
     this.dNode.delayTime.value = map(this.w, 0, 1.0, 0, 1/this.oscillator.frequency.value)
+
+    // disconnect osc2 and connect it to delay, which is connected to output
+    this.osc2.disconnect();
+    this.osc2.connect(this.osc2.output);
+    this.osc2.connect(this.dNode);
+    this.dNode.connect(this.output);
+
   }
-}
 
-Pulse.prototype.start = function(time) {
-  if (!this.started){
-    var freq = this.oscillator.frequency.value;
-    var type = this.oscillator.type;
-    // var detune = this.oscillator.frequency.value;
-    this.oscillator = this.p5s.audiocontext.createOscillator();
-    this.oscillator.frequency.value = freq;
-    this.oscillator.type = type;
-    // this.oscillator.detune.value = detune;
-    this.oscillator.connect(this.output);
-    this.started = true;
-    time = time || this.p5s.audiocontext.currentTime;
-    this.oscillator.start(time);
+  Pulse.prototype = Object.create(Oscillator.prototype);
 
-    // set up osc2
-    this.osc2.oscillator = this.p5s.audiocontext.createOscillator();
-    this.osc2.oscillator.frequency.value = -freq;
-    this.osc2.oscillator.type = type;
-    this.osc2.start(time);
+  Pulse.prototype.setWidth = function(w) {
+    if (w <= 1.0 && w >= 0.0) {
+      this.w = w;
+      // set delay time based on PWM width
+      this.dNode.delayTime.value = map(this.w, 0, 1.0, 0, 1/this.oscillator.frequency.value)
+    }
   }
-}
 
-Pulse.prototype.stop = function(time){
-  if (this.started){
-    t = time || this.p5s.audiocontext.currentTime;
-    this.oscillator.stop(t);
-    this.osc2.stop(t);
-    this.started = false;
+  Pulse.prototype.start = function(time) {
+    if (!this.started){
+      var freq = this.oscillator.frequency.value;
+      var type = this.oscillator.type;
+      // var detune = this.oscillator.frequency.value;
+      this.oscillator = this.p5s.audiocontext.createOscillator();
+      this.oscillator.frequency.value = freq;
+      this.oscillator.type = type;
+      // this.oscillator.detune.value = detune;
+      this.oscillator.connect(this.output);
+      this.started = true;
+      time = time || this.p5s.audiocontext.currentTime;
+      this.oscillator.start(time);
+
+      // set up osc2
+      this.osc2.oscillator = this.p5s.audiocontext.createOscillator();
+      this.osc2.oscillator.frequency.value = -freq;
+      this.osc2.oscillator.type = type;
+      this.osc2.start(time);
+    }
   }
-}
 
-// set amp between 0 and 1.0
-Pulse.prototype.amp = function(vol){
-  this.output.gain.value = vol;
-//  this.osc2.output.gain.value = vol;
-}
+  Pulse.prototype.stop = function(time){
+    if (this.started){
+      t = time || this.p5s.audiocontext.currentTime;
+      this.oscillator.stop(t);
+      this.osc2.stop(t);
+      this.started = false;
+    }
+  }
 
-Pulse.prototype.setFreq = function(val){
-  //rampTime = rampTime || 0;
-  this.oscillator.frequency.value = val;
-  this.osc2.oscillator.frequency.value = -val;
-}
+  // set amp between 0 and 1.0
+  Pulse.prototype.amp = function(vol){
+    this.output.gain.value = vol;
+  //  this.osc2.output.gain.value = vol;
+  }
+
+  Pulse.prototype.setFreq = function(val){
+    //rampTime = rampTime || 0;
+    this.oscillator.frequency.value = val;
+    this.osc2.oscillator.frequency.value = -val;
+  }
+
+
+  // AUDIO IN
+  AudioIn = function() {
+    // set up audio input
+    this.p5sound = window.p5Sound;
+
+    this.input = this.p5sound.audiocontext.createGain();
+    this.output = this.p5sound.audiocontext.createGain();
+
+    this.output.connect(this.p5sound.input);
+
+    this.stream = null;
+    this.mediaStream = null;
+
+    if (typeof MediaStreamTrack === 'undefined'){
+      alert('This browser does not support MediaStreamTrack');
+    } else {
+      MediaStreamTrack.getSources(this.gotSources);
+    }
+  }
+
+  AudioIn.prototype.connect = function(unit) {
+      this.output.connect(unit);
+  }
+
+  AudioIn.prototype.disconnect = function(unit) {
+      this.output.disconnect(unit);
+  }
+
+  AudioIn.prototype.on = function() {
+    var self = this;
+
+    // Only get the audio stream.
+    navigator.getUserMedia( {"audio":true},
+      this._onStream = function(stream) {
+      self.stream = stream;
+      // Wrap a MediaStreamSourceNode around the live input
+      self.mediaStream = this.p5sound.audiocontext.createMediaStreamSource(stream);
+      self.mediaStream.connect(self.output);
+    }, this._onStreamError = function(stream) {
+      console.error(e);
+    });
+  }
+
+  AudioIn.prototype.off = function() {
+    if (this.stream) {
+      this.stream.stop();
+    }
+  }
+
+  AudioIn.prototype.gotSources = function(sourceInfos) {
+    for (var i = 0; i!= sourceInfos.length; i++) {
+      var sourceInfo = sourceInfos[i];
+      if (sourceInfo.kind === 'audio') {
+        // add the inputs to p5Sound
+        this.p5sound.inputSources.push(sourceInfo);
+      }
+    }
+  }
 
 
 })(); //call closure
