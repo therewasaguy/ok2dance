@@ -2,18 +2,33 @@ var recording = false;
 var waiting = false;
 var mic = new AudioIn();
 var recorder = new Recorder(mic);
+var recordingTimer = 0;
+var recordStart;
+
+// FFT
+var fft;
+var fftSize = 1024;
+var frequencySpectrum = [];
+fft = new FFT(.8, fftSize, -140, 0);
+fft.disconnect();
+fft.setInput(mic);
+var frequencySpectrum = fft.processFrequency();
 
 // path to current file so it can be deleted
 var filePath;
 
+// This canvas is the notification window
 var recordButton = function( sketch ) {
 
   sketch.setup = function() {
-    sketch.createCanvas(600, 400);
-    sketch.background(220,220,245);
+    sketch.createCanvas(500, 400);
+    sketch.background(220,0,0);
+    sketch.textSize(48);
+    sketch.fill(0,255,0);
+    sketch.stroke(255,255,0);
+    sketch.text('Is it OK to Dance?', 20, 50);
     sketch.textSize(24);
-    sketch.fill(0);
-    sketch.text('Is it ok to dance? Press to record and analyze... ', 20, 50);
+    sketch.text('Click here to listen and determine danceability',20,100);
     sketch.textAlign(sketch.CENTER);
     sketch.textSize(24);
     sketch.noStroke();
@@ -35,16 +50,7 @@ var recordButton = function( sketch ) {
 var recButtonP5 = new p5(recordButton, 'recordButton');
 
 
-// FFT
-var fft;
-var fftSize = 1024;
-var frequencySpectrum = [];
-fft = new FFT(.8, fftSize, -140, 0);
-fft.disconnect();
-fft.setInput(mic);
-var frequencySpectrum = fft.processFrequency();
-
-
+// This canvas is the FFT window
 var ok2dance = function( sketch ) {
 
   sketch.waiting = false;
@@ -70,7 +76,9 @@ micOn = function() {
   // mute output to prevent feedback
   p5sound.amp(.0);
   recButtonP5.background(255,0,0);
-  recButtonP5.text('Allow microphone to start recording...click here to stop',recButtonP5.width/2,recButtonP5.height/2);
+  recButtonP5.fill(255,255,0);
+  recButtonP5.text('Please enable microphone to begin recording',recButtonP5.width/2,recButtonP5.height/2);
+
   recording = true;
   mic.on();
   startRecording();
@@ -80,6 +88,7 @@ micOn = function() {
   setTimeout(function() {
     if (recording == true) {
       micOff();
+      console.log('bang!');
     }
   }, 20000);
 };
@@ -88,8 +97,70 @@ micOff = function() {
   // turn output back on
   p5sound.amp(1.);
 
-  recButtonP5.background(0,255,0);
-  recButtonP5.text('Analyzing...',recButtonP5.width/2,recButtonP5.height/2);
+  recButtonP5.background(0,0,0);
+  recButtonP5.fill(255);
+  recButtonP5.text('Sending audio to Echo Nest for analysis',recButtonP5.width/2,recButtonP5.height/2);
+
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Sending audio to Echo Nest for analysis.',recButtonP5.width/2,recButtonP5.height/2);
+  }, 1500);
+
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Sending audio to Echo Nest for analysis..',recButtonP5.width/2,recButtonP5.height/2);
+  }, 2250);
+
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Sending audio to Echo Nest for analysis...',recButtonP5.width/2,recButtonP5.height/2);
+  }, 3000);
+
+
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Sending audio to Echo Nest for analysis....',recButtonP5.width/2,recButtonP5.height/2);
+  }, 3750);
+
+  // update messages
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Computing danceability',recButtonP5.width/2,recButtonP5.height/2);
+  }, 5000);
+
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Computing danceability.',recButtonP5.width/2,recButtonP5.height/2);
+  }, 6000);
+
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Computing danceability..',recButtonP5.width/2,recButtonP5.height/2);
+  }, 6500);
+
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Computing danceability...',recButtonP5.width/2,recButtonP5.height/2);
+  }, 7000);
+
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Parsing danceability',recButtonP5.width/2,recButtonP5.height/2);
+  }, 8200);
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Parsing danceability.',recButtonP5.width/2,recButtonP5.height/2);
+  }, 8300);
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Parsing danceability..',recButtonP5.width/2,recButtonP5.height/2);
+  }, 8800);
+
+  setTimeout( function() {
+    recButtonP5.background(0,0,0);
+    recButtonP5.text('Parsing danceability...',recButtonP5.width/2,recButtonP5.height/2);
+  }, 9500);
+
   waiting = true;
   recording = false;
   mic.off();
@@ -101,6 +172,20 @@ function setup() {
 }
 
 function draw() {
+  if (recording && frequencySpectrum[200] > 0) {
+
+    // do this once to set initial recordStar
+    if (recordingTimer == 0) {
+      recordStart = p5sound.audiocontext.currentTime;
+      recordingTimer = 1;
+//      recordingTimer = p5sound.audiocontext.currentTime - recordStart;
+    }
+    recButtonP5.background(255,0,0);
+    recButtonP5.text('RECORDING',recButtonP5.width/2,recButtonP5.height/2);
+    recButtonP5.text('(click here to stop)',recButtonP5.width/2,recButtonP5.height/2 + 30);
+    var recTime = round(p5sound.audiocontext.currentTime - recordStart);
+    recButtonP5.text('Time: ' + recTime,recButtonP5.width/2,recButtonP5.height/2 + 60);
+  }
   if (recording == true) {
     okP5.background(255);
     frequencySpectrum = fft.processFrequency();
@@ -117,13 +202,13 @@ function draw() {
   }
     if (waiting && frameCount % 200 == 0) {
     okP5.background(0);
-    okP5.text('Waiting.',okP5.width/2,okP5.height/2);
-  } else if (this.waiting && frameCount % 12 == 0) {
+    okP5.text('Please wait.',okP5.width/2,okP5.height/2);
+  } else if (this.waiting && frameCount % 9 == 0) {
     okP5.background(0);
-    okP5.text('Waiting..',okP5.width/2,okP5.height/2);
+    okP5.text('Please wait..',okP5.width/2,okP5.height/2);
   } else if (this.waiting && frameCount % 16 == 0) {
     okP5.background(0);
-    okP5.text('Waiting...',okP5.width/2,okP5.height/2);
+    okP5.text('Please wait...',okP5.width/2,okP5.height/2);
   }
 }
 
@@ -211,11 +296,12 @@ function parseTrackID(uploadResponseText) {
   var jsonResults = JSON.parse(uploadResponseText);
   var trackID = jsonResults.track.id;
   console.log(trackID);
-  setTimeout(function() {getDanceability(trackID);},10000);
+  setTimeout(function() {getDanceability(trackID);},11000);
 }
 
 
 function parseDanceability(results) {
+  console.log('parsing danceability');
   var echonestRaw = JSON.parse(results).response;
   var echonestTrack = JSON.parse(results).response.track; //.response.songs[0].audio_summary;
 
