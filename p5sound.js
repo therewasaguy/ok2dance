@@ -918,16 +918,8 @@ SoundFile.prototype.isLoaded = function() {
   }
 
   // create analyser node with optional variables for smoothing, fft size, min/max decibels
-  FFT.prototype.setInput = function(source) {
+  FFT.prototype.input = function(source) {
     source.connect(this.analyser);
-  }
-
-  FFT.prototype.disconnect = function() {
-    this.analyser.disconnect();
-  }
-
-  FFT.prototype.connect = function(source) {
-    this.analyser.connect(source);
   }
 
   /**
