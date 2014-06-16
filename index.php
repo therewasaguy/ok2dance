@@ -1,3 +1,7 @@
+<?php
+  include 'eko.php';
+?>
+
 <html>
 
 <head>
@@ -16,22 +20,18 @@
 </head>
 
 <body>
-  <div>
-   <form action="http://developer.echonest.com/api/v4/track/upload" method="post" enctype="multipart/form-data">
-    Select an <b>MP3</b> 2 upload : <input  id="track" name="track" type="file">
 
-    <input type="hidden" name="api_key" id="api_key" value="echonest">
-    <input name="filetype" type="hidden" value="wav">
-    <input id='upload' type="submit" value="Upload MP3"> 
-  </form>
-
-  </div>
 </body>
-
-
 
 
   <footer>
       <script language="javascript" type="text/javascript" src="en.js"></script> 
+      <script>
+        function getDanceability(trackID) {
+          var enkey = "<?php Print($echonest); ?>";
+          // load JSON
+          loadStrings('http://developer.echonest.com/api/v4/track/profile?api_key='+enkey+'&id='+trackID+'&bucket=audio_summary', parseDanceability);
+        }
+        </script>
   </footer>
 </html>
