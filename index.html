@@ -8,10 +8,30 @@
 
   <script language="javascript" type="text/javascript" src="p5Sound.js"></script> 
 
-  <script language="javascript" type="text/javascript" src="sketch.js"></script> 
+  <script language="javascript" type="text/javascript" src="recorder.js"></script> 
+  <script language="javascript" type="text/javascript" src="recorderWorker.js"></script> 
 
-  <script language="javascript" type="text/javascript" src="en.js"></script> 
+  <script language="javascript" type="text/javascript" src="sketch.js"></script> 
 
 </head>
 
+<body>
+  <div>
+   <form action="http://developer.echonest.com/api/v4/track/upload" method="post" enctype="multipart/form-data">
+    Select an <b>MP3</b> 2 upload : <input  id="track" name="track" type="file">
+
+    <input type="hidden" name="api_key" id="api_key" value="echonest">
+    <input name="filetype" type="hidden" value="wav">
+    <input id='upload' type="submit" value="Upload MP3"> 
+  </form>
+
+  </div>
+</body>
+
+
+
+
+  <footer>
+      <script language="javascript" type="text/javascript" src="en.js"></script> 
+  </footer>
 </html>

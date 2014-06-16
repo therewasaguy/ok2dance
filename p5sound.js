@@ -22,6 +22,7 @@ var Amplitude; // Measures Amplitude (Volume)
 var FFT; // Returns an array of frequency data
 var Oscillator, SinOsc, SqrOsc, SawOsc, TriOsc, Pulse;
 var AudioIn;
+var Recorder;
 
 
 var createP5Sound = (function(){
@@ -743,13 +744,14 @@ SoundFile.prototype.isLoaded = function() {
     // store a local reference to the window's p5sound context
     this.p5s = window.p5sound;
 
+    // Set to 2048 for now. In future iterations, this should be inherited or parsed from p5sound's default
+    this.bufferSize = 2048;
+
     // set audio context
     this.audiocontext = this.p5s.audiocontext;
     this.processor = this.audiocontext.createScriptProcessor(this.bufferSize);
 
 
-    // Set to 2048 for now. In future iterations, this should be inherited or parsed from p5sound's default
-    this.bufferSize = 2048;
 
     //smoothing (defaults to .95)
     this.smoothing = 0;
@@ -849,7 +851,7 @@ SoundFile.prototype.isLoaded = function() {
     var rms = Math.sqrt(sum / bufLength);
 
     this.volume = Math.max(rms, this.volume*this.smoothing);
-    this.volMax=max(this.volume, this.volMax);
+    this.volMax=Math.max(this.volume, this.volMax);
 
     // normalized values
     this.volNorm = constrain(this.volume/this.volMax, 0, 1);
@@ -881,6 +883,13 @@ SoundFile.prototype.isLoaded = function() {
     this.normalize = !this.normalize;
   }
 
+  Amplitude.prototype.smooth = function(s) {
+    if (s >= 0 && s < 1) {
+      this.smoothing = s;
+    } else {
+      console.log('Error: smoothing must be between 0 and 1');
+    }
+  }
 
   /**
    *  FFT Object
@@ -1214,7 +1223,6 @@ SoundFile.prototype.isLoaded = function() {
   AudioIn = function() {
     // set up audio input
     this.p5sound = window.p5Sound;
-
     this.input = this.p5sound.audiocontext.createGain();
     this.output = this.p5sound.audiocontext.createGain();
 
@@ -1268,6 +1276,167 @@ SoundFile.prototype.isLoaded = function() {
       }
     }
   }
+
+
+  AudioIn.prototype.amp = function(vol){
+    this.output.gain.value = vol;
+  }
+
+  // =================================
+  // recorder, inspired by recorder.js
+  // =================================
+
+  // Recorder = function(source) {
+  //   var bufferLen = 4096;
+
+  //   this.p5sound = window.p5Sound;
+  //   this.input = this.p5sound.audiocontext.createGain();
+  //   this.output = this.p5sound.audiocontext.createGain();
+
+  //   // recorder variables
+  //   this.recLength = 0;
+  //   this.recBuffersL = [];
+  //   this.recBuffersR = [];
+  //   this.sampleRate;
+
+  //   this.recording = false;
+
+  //   // default source
+  //   this.source = source || this.p5sound.output;
+
+  //   console.log(this.source);
+  //   // create node
+  //   this.node = this.p5sound.audiocontext.createScriptProcessor();
+  //   this.node.onaudioprocess = this.recordProcess.bind(this);
+
+  //   this.source.connect(this.input);
+  //   this.input.connect(this.node);
+  //   this.node.connect(this.p5sound.output); // necessary for some reason
+  // }
+
+  // Recorder.prototype.record = function() {
+  //   this.recording = true;
+  // }
+
+  // Recorder.prototype.stop = function() {
+  //   this.recording = false;
+  // }
+
+  // Recorder.prototype.clear = function() {
+  //   this.recBuffersL = [];
+  //   this.recBuffersR = [];
+  //   this.recLength = 0;
+  // }
+
+  // Recorder.prototype.recordProcess = function(event) {
+  //   if (!this.recording) return;
+
+  //   // if volume is below threshold...
+  //   if (event.inputBuffer.getChannelData(0)[100] == 0) return;
+ 
+  //   // normalize
+  //   for (i = 0; i< event.inputBuffer.getChannelData(0).length; i++ ) {
+  //     event.inputBuffer.getChannelData(0)[i] = event.inputBuffer.getChannelData(0)[i]*100;
+  //     event.inputBuffer.getChannelData(1)[i] = event.inputBuffer.getChannelData(1)[i]*100;
+  //   }
+
+  //   // add to result
+  //   this.recBuffersL.push( event.inputBuffer.getChannelData(0) );
+  //   this.recBuffersR.push( event.inputBuffer.getChannelData(1) );
+  //   this.recLength += event.inputBuffer.getChannelData(0).length;
+  // }
+
+  // Recorder.prototype.getBuffer = function() {
+  //   var buffers = [];
+  //   buffers.push( this.mergeBuffers(this.recBuffersL, this.recLength) );
+  //   buffers.push( this.mergeBuffers(this.recBuffersR, this.recLength) );
+  //   return buffers;
+  // }
+
+  // // from Recorder.js
+  // Recorder.prototype.exportWav = function(callback, type) {
+  //   var type = type || 'audio/wav';
+  //   var bufferL = this.mergeBuffers(this.recBuffersL, this.recLength);
+  //   var bufferR = this.mergeBuffers(this.recBuffersR, this.recLength);
+  //   var interleaved = this.interleave(bufferL, bufferR);
+  //   var dataview = this.encodeWAV(interleaved);
+  //   var audioBlob = new Blob([dataview], { type: type });
+
+  //   callback(audioBlob);
+  // }
+
+  // Recorder.prototype.mergeBuffers = function(recBuffers, recLength){
+  //   var result = new Float32Array(this.recLength);
+  //   var offset = 0;
+  //   for (var i = 0; i < recBuffers.length; i++){
+  //     result.set(recBuffers[i], offset);
+  //     offset += recBuffers[i].length;
+  //   }
+  //   return result;
+  // }
+
+  // Recorder.prototype.interleave = function(inputL, inputR){
+  //   var length = inputL.length + inputR.length;
+  //   var result = new Float32Array(length);
+
+  //   var index = 0,
+  //     inputIndex = 0;
+
+  //   while (index < length){
+  //     result[index++] = inputL[inputIndex];
+  //     result[index++] = inputR[inputIndex];
+  //     inputIndex++;
+  //   }
+  //   return result;
+  // }
+
+  // Recorder.prototype.floatTo16BitPCM = function(output, offset, input){
+  //   for (var i = 0; i < input.length; i++, offset+=2){
+  //     var s = Math.max(-1, Math.min(1, input[i]));
+  //     output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  //   }
+  // }
+
+  // Recorder.prototype.writeString = function (view, offset, string){
+  //   for (var i = 0; i < string.length; i++){
+  //     view.setUint8(offset + i, string.charCodeAt(i));
+  //   }
+  // }
+
+  // Recorder.prototype.encodeWAV = function(samples){
+  //   var buffer = new ArrayBuffer(44 + samples.length * 2);
+  //   var view = new DataView(buffer);
+  //   /* RIFF identifier */
+  //   this.writeString(view, 0, 'RIFF');
+  //   /* file length */
+  //   view.setUint32(4, 32 + samples.length * 2, true);
+  //   /* RIFF type */
+  //   this.writeString(view, 8, 'WAVE');
+  //   /* format chunk identifier */
+  //   this.writeString(view, 12, 'fmt ');
+  //   /* format chunk length */
+  //   view.setUint32(16, 16, true);
+  //   /* sample format (raw) */
+  //   view.setUint16(20, 1, true);
+  //   /* channel count */
+  //   view.setUint16(22, 2, true);
+  //   /* sample rate */
+  //   view.setUint32(24, this.sampleRate, true);
+  //   /* byte rate (sample rate * block align) */
+  //   view.setUint32(28, this.sampleRate * 4, true);
+  //   /* block align (channel count * bytes per sample) */
+  //   view.setUint16(32, 4, true);
+  //   /* bits per sample */
+  //   view.setUint16(34, 16, true);
+  //   /* data chunk identifier */
+  //   this.writeString(view, 36, 'data');
+  //   /* data chunk length */
+  //   view.setUint32(40, samples.length * 2, true);
+
+  //   this.floatTo16BitPCM(view, 44, samples);
+
+  //   return view;
+  // }
 
 
 })(); //call closure
