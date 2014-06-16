@@ -6,7 +6,6 @@ var recorder = new Recorder(mic);
 // path to current file so it can be deleted
 var filePath;
 
-
 var recordButton = function( sketch ) {
 
   sketch.setup = function() {
