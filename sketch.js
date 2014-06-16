@@ -16,19 +16,38 @@ var frequencySpectrum = fft.processFrequency();
 
 // path to current file so it can be deleted
 var filePath;
+var finalImage;
+
+var initialize = function() {
+  recording = false;
+  waiting = false;
+  recordingTimer = 0;
+  recordStart = null;
+  filePath = null;
+  recButtonP5.initialize();
+  okP5.initialize();
+  finalImage.hide();
+}
 
 // This canvas is the notification window
 var recordButton = function( sketch ) {
 
   sketch.setup = function() {
     sketch.createCanvas(500, 400);
+    sketch.initialize();
+  };
+
+  sketch.initialize = function() {
     sketch.background(220,0,0);
     sketch.textSize(48);
     sketch.fill(0,255,0);
     sketch.stroke(255,255,0);
-    sketch.text('Is it OK to Dance?', 20, 50);
+    sketch.textAlign(sketch.LEFT);
+    sketch.text('Is it OK to Dance?', 15, 50);
     sketch.textSize(24);
-    sketch.text('Click here to listen and determine danceability',20,100);
+    sketch.text('Ok2Dance will listen & compute danceability.',15,100);
+    sketch.textSize(18);
+    sketch.text('Click here to begin recording...', 15, 135);
     sketch.textAlign(sketch.CENTER);
     sketch.textSize(24);
     sketch.noStroke();
@@ -39,9 +58,19 @@ var recordButton = function( sketch ) {
   };
 
   sketch.mousePressed = function() {
-    if (recording == false && sketch.mouseX > 0 && sketch.mouseX < sketch.width && sketch.mouseY > 0 && sketch.mouseY < sketch.height) {
+    if (waiting == true) {
+      //do nothing
+    }
+    else if (recording == false && sketch.mouseX > 0 && sketch.mouseX < sketch.width && sketch.mouseY > 0 && sketch.mouseY < sketch.height) {
+      if (  recordingTimer > 0 ) {
+        initialize();
+      }
       micOn();
-    } else if (recording == true && sketch.mouseX > 0 && sketch.mouseX < sketch.width && sketch.mouseY > 0 && sketch.mouseY < sketch.height){
+    }
+    else if (recording == true &&  frequencySpectrum[200] == 0) {
+      // do nothing because recording has not begun
+    }
+    else if (recording == true && sketch.mouseX > 0 && sketch.mouseX < sketch.width && sketch.mouseY > 0 && sketch.mouseY < sketch.height){
       micOff();
     }
   };
@@ -57,6 +86,10 @@ var ok2dance = function( sketch ) {
 
   sketch.setup = function() {
     sketch.createCanvas(400, 400);
+    sketch.initialize();
+  };
+
+  sketch.initialize = function() {
     sketch.background(255,255,255);
     sketch.textAlign(sketch.CENTER);
     sketch.textSize(24);
@@ -174,11 +207,11 @@ function setup() {
 function draw() {
   if (recording && frequencySpectrum[200] > 0) {
 
-    // do this once to set initial recordStar
+    // do this once to set initial recordStart and keep track of duration
     if (recordingTimer == 0) {
       recordStart = p5sound.audiocontext.currentTime;
       recordingTimer = 1;
-//      recordingTimer = p5sound.audiocontext.currentTime - recordStart;
+
     }
     recButtonP5.background(255,0,0);
     recButtonP5.text('RECORDING',recButtonP5.width/2,recButtonP5.height/2);
@@ -199,6 +232,7 @@ function draw() {
   }
   else{
     okP5.fill(255,255,0);
+    frequencySpectrum[200] = 0;
   }
     if (waiting && frameCount % 200 == 0) {
     okP5.background(0);
@@ -214,20 +248,31 @@ function draw() {
 
 displayResults = function(energy, danceability) {
   waiting = false;
-  if (danceability > .5) {
+
+
+
+
+
+  // success: 
+  if (danceability > .01) {
     okP5.background(0,255,0);
     okP5.text('YES!!!',okP5.width/2,okP5.height/2);
     recButtonP5.background(0,255,0);
+    recButtonP5.text('click to try again',recButtonP5.width/2,recButtonP5.height/2);
+    var yesImg = 'images/yes/'+Math.round(Math.random(1)*18 + 1)+'.gif';
+    finalImage = recButtonP5.createImg(yesImg);
+    finalImage.show();
   }
-  else if (energy > .5) {
-    okP5.background(255,0,0);
-    okP5.text("No",okP5.width/2,okP5.height/2);
-    recButtonP5.background(255,0,0);
-  }
+
+  // fail:
   else {
     okP5.background(255,0,0);
     okP5.text('NO.',okP5.width/2,okP5.height/2);
     recButtonP5.background(255,0,0);
+    recButtonP5.text('click to try again',recButtonP5.width/2,recButtonP5.height/2);
+    var noImg = 'images/no/'+Math.round(Math.random(1)*12 + 1)+'.gif';
+    finalImage = recButtonP5.createImg(noImg);
+    finalImage.show();
   }
 
 }
@@ -251,12 +296,15 @@ displayWav = function(wavBlob) {
   hf.href = url;
   var fileName = new Date().toISOString() + '.wav';
   hf.download = fileName;
-  hf.innerHTML = hf.download;
+  hf.innerHTML = 'click to download your recording';
   li.appendChild(au);
   li.appendChild(hf);
   document.body.appendChild(li);
 
   saveWav(wavBlob, 'audio', fileName);
+
+  // set global variable so we can delete this file later
+  filePath = fileName;
 }
 
 
@@ -325,7 +373,11 @@ function parseDanceability(results) {
 }
 
 function deleteFile() {
-  //TO DO
+  var formData = new FormData();
+  formData.append('delete', true);
+  formData.append('currentFile', filePath);
+  var logSuccess = function(e) {console.log(e);} //log the results
+  xhrRequest('delete.php', formData, logSuccess);
 }
 
 function playBuffers( buffers ) {
